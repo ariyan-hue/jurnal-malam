@@ -4,7 +4,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 const AuthContext = createContext(null)
 
 // Admin email — ganti dengan email kamu sendiri!
-const ADMIN_EMAIL = '***'
+const ADMIN_EMAIL = 'bowo@gmail.com'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
