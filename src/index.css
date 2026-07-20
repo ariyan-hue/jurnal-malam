@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-night-950 text-night-100 antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-night-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-night-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-night-500;
+  }
+
+  /* Focus ring */
+  :focus-visible {
+    @apply outline-none ring-2 ring-night-400 ring-offset-2 ring-offset-night-950;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-night-500 hover:bg-night-400 active:bg-night-600 
+           text-white font-medium py-2.5 px-5 rounded-xl 
+           transition-all duration-150 ease-out
+           min-h-[44px] min-w-[44px]
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply bg-red-600/20 hover:bg-red-600/40 active:bg-red-600/60
+           text-red-300 font-medium py-2.5 px-5 rounded-xl
+           transition-all duration-150 ease-out
+           min-h-[44px] min-w-[44px];
+  }
+
+  .btn-ghost {
+    @apply hover:bg-night-800 active:bg-night-700
+           text-night-300 font-medium py-2.5 px-5 rounded-xl
+           transition-all duration-150 ease-out
+           min-h-[44px] min-w-[44px];
+  }
+
+  .card {
+    @apply bg-night-900/80 backdrop-blur-sm border border-night-700/50 rounded-2xl;
+  }
+
+  .mood-chip {
+    @apply flex items-center gap-1.5 px-3 py-2 rounded-xl 
+           border-2 border-transparent
+           transition-all duration-150 ease-out
+           cursor-pointer select-none
+           min-h-[44px] min-w-[44px] justify-center
+           text-sm font-medium;
+  }
+
+  .mood-chip:hover {
+    @apply border-night-500;
+  }
+
+  .mood-chip.selected {
+    @apply border-night-300 bg-night-700;
+  }
+
+  .search-highlight {
+    @apply bg-mood-happy/30 text-mood-happy rounded px-0.5;
+  }
+}
