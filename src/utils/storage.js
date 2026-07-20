@@ -1,11 +1,12 @@
 /**
  * Hybrid storage: Supabase (primary) + localStorage (fallback/offline)
+ * With multi-user support via user_id
  */
 
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
-const STORAGE_KEY = 'jurnal:entries'
-const DRAFT_KEY = 'jurnal:draft'
+const STORAGE_KEY = '***'
+const DRAFT_KEY = '***'
 
 function todayISO() {
   const d = new Date()
@@ -15,15 +16,15 @@ function todayISO() {
 
 // ─── Entries ───
 
-export async function fetchEntries() {
-  if (isSupabaseConfigured) {
+export async function fetchEntries(userId) {
+  if (isSupabaseConfigured && userId) {
     try {
       const { data, error } = await supabase
         .from('entries')
         .select('*')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
       if (error) throw error
-      // Map Supabase format to app format
       const mapped = (data || []).map(e => ({
         id: e.id,
         title: e.title || '',
@@ -38,9 +39,10 @@ export async function fetchEntries() {
     }
   }
 
-  // localStorage fallback
+  // localStorage fallback (per-user)
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const key = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY
+    const raw = localStorage.getItem(key)
     const data = raw ? JSON.parse(raw) : []
     data.sort((a, b) => b.createdAt - a.createdAt)
     return { data, error: null }
@@ -49,7 +51,7 @@ export async function fetchEntries() {
   }
 }
 
-export async function createEntry({ content, title, mood }) {
+export async function createEntry({ content, title, mood, userId }) {
   const entry = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     title: title || '',
@@ -59,11 +61,11 @@ export async function createEntry({ content, title, mood }) {
     createdAt: Date.now(),
   }
 
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && userId) {
     try {
       const { data, error } = await supabase
         .from('entries')
-        .insert({ content, title: title || null, mood: mood || null })
+        .insert({ content, title: title || null, mood: mood || null, user_id: userId })
         .select()
         .single()
       if (error) throw error
@@ -85,23 +87,25 @@ export async function createEntry({ content, title, mood }) {
 
   // localStorage fallback
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const key = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY
+    const raw = localStorage.getItem(key)
     const entries = raw ? JSON.parse(raw) : []
     entries.unshift(entry)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
+    localStorage.setItem(key, JSON.stringify(entries))
     return { data: entry, error: null }
   } catch (err) {
     return { data: null, error: err.message }
   }
 }
 
-export async function updateEntry(id, { content, title, mood }) {
-  if (isSupabaseConfigured) {
+export async function updateEntry(id, { content, title, mood, userId }) {
+  if (isSupabaseConfigured && userId) {
     try {
       const { data, error } = await supabase
         .from('entries')
         .update({ content, title: title || null, mood: mood || null, updated_at: new Date().toISOString() })
         .eq('id', id)
+        .eq('user_id', userId)
         .select()
         .single()
       if (error) throw error
@@ -123,25 +127,27 @@ export async function updateEntry(id, { content, title, mood }) {
 
   // localStorage fallback
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const key = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY
+    const raw = localStorage.getItem(key)
     const entries = raw ? JSON.parse(raw) : []
     const idx = entries.findIndex(e => e.id === id)
     if (idx === -1) return { data: null, error: 'Entry not found' }
     entries[idx] = { ...entries[idx], title: title || '', body: content, mood: mood || 'tenang' }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
+    localStorage.setItem(key, JSON.stringify(entries))
     return { data: entries[idx], error: null }
   } catch (err) {
     return { data: null, error: err.message }
   }
 }
 
-export async function deleteEntry(id) {
-  if (isSupabaseConfigured) {
+export async function deleteEntry(id, userId) {
+  if (isSupabaseConfigured && userId) {
     try {
       const { error } = await supabase
         .from('entries')
         .delete()
         .eq('id', id)
+        .eq('user_id', userId)
       if (error) throw error
       return { error: null }
     } catch (err) {
@@ -151,10 +157,11 @@ export async function deleteEntry(id) {
 
   // localStorage fallback
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const key = userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY
+    const raw = localStorage.getItem(key)
     const entries = raw ? JSON.parse(raw) : []
     const filtered = entries.filter(e => e.id !== id)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
+    localStorage.setItem(key, JSON.stringify(filtered))
     return { error: null }
   } catch (err) {
     return { error: err.message }

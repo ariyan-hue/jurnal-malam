@@ -1,12 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useAuth } from './lib/auth'
 import { MOODS, todayISO, formatTanggal, formatWaktu, moodOf } from './utils/helpers'
-import { fetchEntries, createEntry, updateEntry, deleteEntry, saveDraft, loadDraft, clearDraft } from './utils/storage'
+import { fetchEntries, createEntry, updateEntry, deleteEntry, loadDraft, clearDraft } from './utils/storage'
 import MoodSelector from './components/MoodSelector'
 import EntryList from './components/EntryList'
 import EntryDetail from './components/EntryDetail'
+import LoginPage from './components/LoginPage'
 import { useAutosave } from './hooks/useAutosave'
 
-export default function App() {
+function JurnalApp() {
+  const { user, signOut } = useAuth()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -28,12 +31,13 @@ export default function App() {
 
   // Load entries on mount
   useEffect(() => {
-    (async () => {
-      const { data, error: err } = await fetchEntries()
+    if (!user) return
+    ;(async () => {
+      const { data, error: err } = await fetchEntries(user.id)
       if (!err) setEntries(data || [])
       setLoading(false)
     })()
-  }, [])
+  }, [user])
 
   // Restore draft on mount
   useEffect(() => {
@@ -44,20 +48,6 @@ export default function App() {
       setDraftMood(saved.mood || 'tenang')
     }
   }, [])
-
-  async function persist(next) {
-    setSaving(true)
-    setError(null)
-    try {
-      // For localStorage, we handle it in storage.js
-      // For Supabase, we save individually
-      // This function is mainly for the localStorage path
-    } catch (e) {
-      setError('Catatan belum tersimpan ke server. Coba lagi.')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   function resetDraft() {
     setDraftTitle('')
@@ -79,6 +69,7 @@ export default function App() {
         content: body,
         title: draftTitle.trim(),
         mood: draftMood,
+        userId: user.id,
       })
       if (err) {
         setError('Gagal memperbarui. Coba lagi.')
@@ -91,6 +82,7 @@ export default function App() {
         content: body,
         title: draftTitle.trim(),
         mood: draftMood,
+        userId: user.id,
       })
       if (err) {
         setError('Gagal menyimpan. Coba lagi.')
@@ -115,7 +107,7 @@ export default function App() {
   }
 
   async function hapusEntri(id) {
-    const { error: err } = await deleteEntry(id)
+    const { error: err } = await deleteEntry(id, user.id)
     if (err) {
       setError('Gagal menghapus. Coba lagi.')
       return
@@ -156,10 +148,15 @@ export default function App() {
           <div style={s.eyebrow}>Catatan Pribadi</div>
           <h1 style={s.h1}>Jurnal Malam</h1>
         </div>
-        <div style={s.statusWrap}>
-          {saving && <span style={s.statusText}>menyimpan…</span>}
-          {!saving && !loading && <span style={s.statusText}>tersimpan otomatis</span>}
-          {error && <span style={{ ...s.statusText, color: '#E0846B' }}>{error}</span>}
+        <div style={s.headerRight}>
+          <div style={s.statusWrap}>
+            {saving && <span style={s.statusText}>menyimpan…</span>}
+            {!saving && !loading && <span style={s.statusText}>tersimpan otomatis</span>}
+            {error && <span style={{ ...s.statusText, color: '#E0846B' }}>{error}</span>}
+          </div>
+          <button onClick={signOut} style={s.logoutBtn} className="jh-icon-btn" title="Keluar">
+            ↗ Keluar
+          </button>
         </div>
       </header>
 
@@ -251,6 +248,24 @@ export default function App() {
   )
 }
 
+export default function App() {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ color: '#8B90A3', fontStyle: 'italic', fontFamily: "'Source Serif 4', serif" }}>
+          Memuat…
+        </span>
+      </div>
+    )
+  }
+
+  if (!user) return <LoginPage />
+
+  return <JurnalApp />
+}
+
 const s = {
   page: {
     position: 'relative',
@@ -292,8 +307,23 @@ const s = {
     margin: 0,
     color: '#F7F3E9',
   },
+  headerRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+  },
   statusWrap: { fontSize: 12, color: '#8B90A3' },
   statusText: { fontStyle: 'italic' },
+  logoutBtn: {
+    background: 'transparent',
+    border: '1px solid #ffffff1f',
+    color: '#B7BAC7',
+    padding: '6px 12px',
+    borderRadius: 8,
+    fontSize: 12,
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+  },
   main: {
     position: 'relative',
     maxWidth: 980,

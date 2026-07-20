@@ -1,13 +1,13 @@
 -- ============================================
--- Jurnal Malam v2 — Supabase Schema
+-- Jurnal Malam v2 — Supabase Schema (Multi-Akun)
 -- ============================================
--- Jalankan SQL ini di Supabase SQL Editor:
--- Dashboard → SQL Editor → New Query → Paste → Run
+-- Jalankan SQL ini di Supabase SQL Editor
 -- ============================================
 
--- Tabel entries
+-- Tabel entries (dengan user_id)
 CREATE TABLE IF NOT EXISTS entries (
   id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   title TEXT,
   mood TEXT,
@@ -15,15 +15,29 @@ CREATE TABLE IF NOT EXISTS entries (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index untuk query cepat
+-- Index
+CREATE INDEX IF NOT EXISTS idx_entries_user_id ON entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_entries_created_at ON entries(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_entries_mood ON entries(mood);
 
--- Row Level Security (RLS)
+-- Enable RLS
 ALTER TABLE entries ENABLE ROW LEVEL SECURITY;
 
--- Policy: allow all operations for anon (single user)
-CREATE POLICY "Allow all for anon" ON entries
-  FOR ALL
-  USING (true)
-  WITH CHECK (true);
+-- Policy: Users can only read their own entries
+CREATE POLICY "Users can read own entries" ON entries
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Policy: Users can insert their own entries
+CREATE POLICY "Users can insert own entries" ON entries
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Policy: Users can update their own entries
+CREATE POLICY "Users can update own entries" ON entries
+  FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- Policy: Users can delete their own entries
+CREATE POLICY "Users can delete own entries" ON entries
+  FOR DELETE
+  USING (auth.uid() = user_id);
