@@ -7,8 +7,9 @@
 
 -- Tabel entries
 CREATE TABLE IF NOT EXISTS entries (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   content TEXT NOT NULL,
+  title TEXT,
   mood TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -19,10 +20,6 @@ CREATE INDEX IF NOT EXISTS idx_entries_created_at ON entries(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_entries_mood ON entries(mood);
 
 -- Row Level Security (RLS)
--- Karena ini app single-user tanpa auth, kita biarkan RLS aktif
--- tapi buat policy yang membolehkan semua operasi.
--- Policy ini aman karena hanya orang yang punya API key yang bisa akses.
-
 ALTER TABLE entries ENABLE ROW LEVEL SECURITY;
 
 -- Policy: allow all operations for anon (single user)

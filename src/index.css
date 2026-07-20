@@ -1,82 +1,48 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600&display=swap');
 
-@layer base {
-  * {
-    -webkit-tap-highlight-color: transparent;
-  }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    @apply bg-night-950 text-night-100 antialiased;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
+::selection { background: #E8A94C55; }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-night-900;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-night-600 rounded-full;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-night-500;
-  }
-
-  /* Focus ring */
-  :focus-visible {
-    @apply outline-none ring-2 ring-night-400 ring-offset-2 ring-offset-night-950;
-  }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: radial-gradient(ellipse 900px 500px at 20% -10%, #2A3450 0%, #1B2438 45%, #141B2E 100%);
+  color: #EDEBE3;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
-@layer components {
-  .btn-primary {
-    @apply bg-night-500 hover:bg-night-400 active:bg-night-600 
-           text-white font-medium py-2.5 px-5 rounded-xl 
-           transition-all duration-150 ease-out
-           min-h-[44px] min-w-[44px]
-           disabled:opacity-50 disabled:cursor-not-allowed;
-  }
+/* Focus ring */
+textarea:focus, input:focus, button:focus-visible, select:focus {
+  outline: 2px solid #E8A94C;
+  outline-offset: 2px;
+}
 
-  .btn-danger {
-    @apply bg-red-600/20 hover:bg-red-600/40 active:bg-red-600/60
-           text-red-300 font-medium py-2.5 px-5 rounded-xl
-           transition-all duration-150 ease-out
-           min-h-[44px] min-w-[44px];
-  }
+/* Animations */
+.jh-fade-in { animation: jhFadeIn .5s ease both; }
+@keyframes jhFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .jh-fade-in { animation: none; } }
 
-  .btn-ghost {
-    @apply hover:bg-night-800 active:bg-night-700
-           text-night-300 font-medium py-2.5 px-5 rounded-xl
-           transition-all duration-150 ease-out
-           min-h-[44px] min-w-[44px];
-  }
+/* Scrollbar */
+.jh-scroll::-webkit-scrollbar { width: 8px; }
+.jh-scroll::-webkit-scrollbar-thumb { background: #ffffff14; border-radius: 4px; }
+.jh-scroll::-webkit-scrollbar-track { background: transparent; }
 
-  .card {
-    @apply bg-night-900/80 backdrop-blur-sm border border-night-700/50 rounded-2xl;
-  }
+/* Card hover */
+.jh-card { transition: all .15s ease; }
+.jh-card:hover { border-color: #E8A94C66 !important; transform: translateY(-1px); }
 
-  .mood-chip {
-    @apply flex items-center gap-1.5 px-3 py-2 rounded-xl 
-           border-2 border-transparent
-           transition-all duration-150 ease-out
-           cursor-pointer select-none
-           min-h-[44px] min-w-[44px] justify-center
-           text-sm font-medium;
-  }
+/* Button hover */
+.jh-btn:hover { filter: brightness(1.08); }
+.jh-icon-btn:hover { background: #ffffff12; }
 
-  .mood-chip:hover {
-    @apply border-night-500;
-  }
-
-  .mood-chip.selected {
-    @apply border-night-300 bg-night-700;
-  }
-
-  .search-highlight {
-    @apply bg-mood-happy/30 text-mood-happy rounded px-0.5;
-  }
+/* Select arrow fix */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23B7BAC7' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px !important;
 }

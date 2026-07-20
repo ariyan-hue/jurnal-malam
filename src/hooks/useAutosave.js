@@ -3,7 +3,6 @@ import { saveDraft, clearDraft } from '../utils/storage'
 
 /**
  * Autosave draft every N seconds while content is non-empty.
- * Returns a function to manually save.
  */
 export function useAutosave(content, mood, enabled = true) {
   const timerRef = useRef(null)
@@ -12,26 +11,23 @@ export function useAutosave(content, mood, enabled = true) {
   useEffect(() => {
     if (!enabled) return
 
-    // Clear existing timer
     if (timerRef.current) {
       clearInterval(timerRef.current)
     }
 
-    // Only autosave if there's content
     if (!content || content.trim().length === 0) {
       return
     }
 
     timerRef.current = setInterval(() => {
-      const draft = { content, mood }
+      const draft = { body: content, mood }
       const serialized = JSON.stringify(draft)
 
-      // Only save if content changed since last save
       if (serialized !== lastSavedRef.current) {
         saveDraft(draft)
         lastSavedRef.current = serialized
       }
-    }, 5000) // Every 5 seconds
+    }, 5000)
 
     return () => {
       if (timerRef.current) {
@@ -42,8 +38,8 @@ export function useAutosave(content, mood, enabled = true) {
 
   const forceSave = () => {
     if (content && content.trim().length > 0) {
-      saveDraft({ content, mood })
-      lastSavedRef.current = JSON.stringify({ content, mood })
+      saveDraft({ body: content, mood })
+      lastSavedRef.current = JSON.stringify({ body: content, mood })
     }
   }
 

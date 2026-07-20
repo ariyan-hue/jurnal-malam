@@ -4,8 +4,14 @@
 
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
-const STORAGE_KEY = 'jurnal-malam-entries'
-const DRAFT_KEY = 'jurnal-malam-draft'
+const STORAGE_KEY = 'jurnal:entries'
+const DRAFT_KEY = 'jurnal:draft'
+
+function todayISO() {
+  const d = new Date()
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 10)
+}
 
 // ─── Entries ───
 
@@ -17,7 +23,16 @@ export async function fetchEntries() {
         .select('*')
         .order('created_at', { ascending: false })
       if (error) throw error
-      return { data, error: null }
+      // Map Supabase format to app format
+      const mapped = (data || []).map(e => ({
+        id: e.id,
+        title: e.title || '',
+        body: e.content,
+        mood: e.mood || 'tenang',
+        date: e.created_at?.slice(0, 10) || todayISO(),
+        createdAt: new Date(e.created_at).getTime(),
+      }))
+      return { data: mapped, error: null }
     } catch (err) {
       console.warn('Supabase fetch failed, falling back to localStorage:', err)
     }
@@ -27,31 +42,42 @@ export async function fetchEntries() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     const data = raw ? JSON.parse(raw) : []
-    data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    data.sort((a, b) => b.createdAt - a.createdAt)
     return { data, error: null }
   } catch (err) {
     return { data: [], error: err.message }
   }
 }
 
-export async function createEntry({ content, mood }) {
+export async function createEntry({ content, title, mood }) {
   const entry = {
-    id: crypto.randomUUID(),
-    content,
-    mood: mood || null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: title || '',
+    body: content,
+    mood: mood || 'tenang',
+    date: todayISO(),
+    createdAt: Date.now(),
   }
 
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
         .from('entries')
-        .insert({ content, mood: mood || null })
+        .insert({ content, title: title || null, mood: mood || null })
         .select()
         .single()
       if (error) throw error
-      return { data, error: null }
+      return {
+        data: {
+          id: data.id,
+          title: data.title || '',
+          body: data.content,
+          mood: data.mood || 'tenang',
+          date: data.created_at?.slice(0, 10) || todayISO(),
+          createdAt: new Date(data.created_at).getTime(),
+        },
+        error: null,
+      }
     } catch (err) {
       console.warn('Supabase insert failed, saving locally:', err)
     }
@@ -69,17 +95,27 @@ export async function createEntry({ content, mood }) {
   }
 }
 
-export async function updateEntry(id, { content, mood }) {
+export async function updateEntry(id, { content, title, mood }) {
   if (isSupabaseConfigured) {
     try {
       const { data, error } = await supabase
         .from('entries')
-        .update({ content, mood: mood || null, updated_at: new Date().toISOString() })
+        .update({ content, title: title || null, mood: mood || null, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
         .single()
       if (error) throw error
-      return { data, error: null }
+      return {
+        data: {
+          id: data.id,
+          title: data.title || '',
+          body: data.content,
+          mood: data.mood || 'tenang',
+          date: data.created_at?.slice(0, 10) || todayISO(),
+          createdAt: new Date(data.created_at).getTime(),
+        },
+        error: null,
+      }
     } catch (err) {
       console.warn('Supabase update failed, updating locally:', err)
     }
@@ -91,7 +127,7 @@ export async function updateEntry(id, { content, mood }) {
     const entries = raw ? JSON.parse(raw) : []
     const idx = entries.findIndex(e => e.id === id)
     if (idx === -1) return { data: null, error: 'Entry not found' }
-    entries[idx] = { ...entries[idx], content, mood: mood || null, updated_at: new Date().toISOString() }
+    entries[idx] = { ...entries[idx], title: title || '', body: content, mood: mood || 'tenang' }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
     return { data: entries[idx], error: null }
   } catch (err) {
@@ -125,12 +161,11 @@ export async function deleteEntry(id) {
   }
 }
 
-// ─── Draft (localStorage only — no need for Supabase) ───
+// ─── Draft (localStorage only) ───
 
 export function saveDraft(draft) {
   try {
-    const data = { ...draft, updated_at: new Date().toISOString() }
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(data))
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
     return true
   } catch {
     return false

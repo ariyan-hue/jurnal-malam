@@ -1,30 +1,30 @@
-const MOODS = [
-  { id: 'happy', emoji: '😊', label: 'Senang', color: 'bg-mood-happy/20 text-mood-happy' },
-  { id: 'calm', emoji: '😌', label: 'Tenang', color: 'bg-mood-calm/20 text-mood-calm' },
-  { id: 'neutral', emoji: '😐', label: 'Biasa aja', color: 'bg-mood-neutral/20 text-mood-neutral' },
-  { id: 'sad', emoji: '😔', label: 'Sedih', color: 'bg-mood-sad/20 text-mood-sad' },
-  { id: 'angry', emoji: '😠', label: 'Marah', color: 'bg-mood-angry/20 text-mood-angry' },
-  { id: 'excited', emoji: '🤩', label: 'Bersemangat', color: 'bg-mood-excited/20 text-mood-excited' },
-  { id: 'tired', emoji: '😴', label: 'Lelah', color: 'bg-mood-tired/20 text-mood-tired' },
-  { id: 'grateful', emoji: '🥰', label: 'Bersyukur', color: 'bg-mood-grateful/20 text-mood-grateful' },
-]
-
-export { MOODS }
+import { MOODS } from '../utils/helpers'
 
 export default function MoodSelector({ selected, onSelect }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {MOODS.map(mood => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {MOODS.map(m => (
         <button
-          key={mood.id}
-          type="button"
-          onClick={() => onSelect(selected === mood.id ? null : mood.id)}
-          className={`mood-chip ${mood.color} ${selected === mood.id ? 'selected' : ''}`}
-          aria-pressed={selected === mood.id}
-          aria-label={`Mood: ${mood.label}`}
+          key={m.id}
+          onClick={() => onSelect(m.id)}
+          className="jh-icon-btn"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 12.5,
+            padding: '6px 12px',
+            borderRadius: 999,
+            border: `1px solid ${selected === m.id ? m.color : '#ffffff1f'}`,
+            color: selected === m.id ? m.color : '#B7BAC7',
+            background: selected === m.id ? `${m.color}1a` : 'transparent',
+            cursor: 'pointer',
+            transition: 'all .15s ease',
+            fontFamily: "'Inter', sans-serif",
+          }}
+          title={m.label}
         >
-          <span className="text-lg">{mood.emoji}</span>
-          <span className="hidden xs:inline">{mood.label}</span>
+          <span style={{ fontSize: 14 }}>{m.glyph}</span> {m.label}
         </button>
       ))}
     </div>

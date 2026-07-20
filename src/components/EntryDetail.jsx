@@ -1,190 +1,162 @@
 import { useState, useEffect, useRef } from 'react'
-import { format } from 'date-fns'
-import { id as idLocale } from 'date-fns/locale'
-import MoodSelector from './MoodSelector'
-import { updateEntry, deleteEntry } from '../utils/storage'
-import { MOODS } from './MoodSelector'
+import { formatTanggal, formatWaktu, moodOf } from '../utils/helpers'
 
-export default function EntryDetail({ entry, onClose, onDeleted, onUpdated }) {
-  const [editing, setEditing] = useState(false)
-  const [content, setContent] = useState(entry.content)
-  const [mood, setMood] = useState(entry.mood)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+export default function EntryDetail({ entry, onClose, onEdit, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [error, setError] = useState(null)
-  const modalRef = useRef(null)
   const deleteTimerRef = useRef(null)
 
-  // Close on Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (editing) {
-          setEditing(false)
-          setContent(entry.content)
-          setMood(entry.mood)
-        } else {
-          onClose()
-        }
-      }
+      if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editing, entry, onClose])
+  }, [onClose])
 
-  // Focus trap
-  useEffect(() => {
-    modalRef.current?.focus()
-  }, [])
-
-  // Cleanup delete timer
   useEffect(() => {
     return () => {
       if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
     }
   }, [])
 
-  const handleSave = async () => {
-    if (!content.trim()) return
-    setSaving(true)
-    setError(null)
-
-    const { error: err } = await updateEntry(entry.id, { content: content.trim(), mood })
-    if (err) {
-      setError('Gagal memperbarui.')
-      setSaving(false)
-      return
-    }
-
-    setSaving(false)
-    setEditing(false)
-    onUpdated()
-  }
-
   const handleDelete = () => {
     if (!confirmDelete) {
       setConfirmDelete(true)
-      // Auto-reset after 5 seconds
       deleteTimerRef.current = setTimeout(() => setConfirmDelete(false), 5000)
       return
     }
-
-    // Actually delete
     if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
-    setDeleting(true)
-    deleteEntry(entry.id).then(() => {
-      onDeleted()
-    })
+    onDelete(entry.id)
   }
 
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) onClose()
-  }
-
-  const moodInfo = MOODS.find(m => m.id === entry.mood)
-  const wordCount = entry.content.trim().split(/\s+/).length
+  const mood = moodOf(entry.mood)
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
-      onClick={handleBackdropClick}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Detail catatan"
-    >
-      <div
-        ref={modalRef}
-        tabIndex={-1}
-        className="w-full sm:max-w-lg bg-night-900 border border-night-700/50 rounded-t-2xl sm:rounded-2xl max-h-[90dvh] overflow-y-auto shadow-2xl"
-      >
-        {/* Header */}
-        <div className="sticky top-0 bg-night-900/95 backdrop-blur-sm px-4 sm:px-6 py-4 border-b border-night-700/50 flex items-center justify-between">
+    <div style={s.overlay} onClick={onClose}>
+      <div style={s.card} onClick={e => e.stopPropagation()} className="jh-fade-in">
+        <div style={s.header}>
           <div>
-            <p className="text-sm text-night-300 font-medium">
-              {format(new Date(entry.created_at), "EEEE, d MMMM yyyy", { locale: idLocale })}
-            </p>
-            <p className="text-xs text-night-500">
-              {format(new Date(entry.created_at), "HH:mm")} · {wordCount} kata
-              {moodInfo && ` · ${moodInfo.emoji} ${moodInfo.label}`}
-            </p>
+            <div style={{ ...s.dateRow, marginBottom: 4 }}>
+              {formatTanggal(entry.date)} · {formatWaktu(entry.createdAt)}
+            </div>
+            <div style={{
+              ...s.moodTag,
+              color: mood.color,
+              borderColor: `${mood.color}55`,
+            }}>
+              {mood.glyph} {mood.label}
+            </div>
           </div>
+          <button onClick={onClose} style={s.closeBtn} className="jh-icon-btn">✕</button>
+        </div>
+
+        {entry.title && <h2 style={s.title}>{entry.title}</h2>}
+        <p style={s.body}>{entry.body}</p>
+
+        <div style={s.footer}>
           <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-night-800 text-night-400 transition-colors"
-            aria-label="Tutup"
+            onClick={handleDelete}
+            style={{
+              ...s.dangerBtn,
+              ...(confirmDelete ? { background: '#E0846B22', animation: 'jhPulse 1s ease infinite' } : {}),
+            }}
+            className="jh-icon-btn"
           >
-            ✕
+            {confirmDelete ? 'Yakin hapus?' : 'Hapus'}
           </button>
-        </div>
-
-        {/* Content */}
-        <div className="px-4 sm:px-6 py-4">
-          {editing ? (
-            <div className="space-y-4">
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="w-full min-h-[200px] bg-night-800/50 border border-night-700/50 rounded-xl p-4 text-night-100 resize-y focus:outline-none focus:ring-2 focus:ring-night-400 text-base leading-relaxed"
-                aria-label="Edit catatan"
-              />
-              <MoodSelector selected={mood} onSelect={setMood} />
-            </div>
-          ) : (
-            <div className="whitespace-pre-wrap text-night-200 leading-relaxed text-base">
-              {entry.content}
-            </div>
-          )}
-
-          {error && (
-            <p className="mt-3 text-sm text-red-400">{error}</p>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="sticky bottom-0 bg-night-900/95 backdrop-blur-sm px-4 sm:px-6 py-4 border-t border-night-700/50 flex items-center justify-between">
-          {editing ? (
-            <>
-              <button
-                onClick={() => {
-                  setEditing(false)
-                  setContent(entry.content)
-                  setMood(entry.mood)
-                }}
-                className="btn-ghost text-sm"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={!content.trim() || saving}
-                className="btn-primary text-sm"
-              >
-                {saving ? 'Menyimpan...' : '💾 Simpan'}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={handleDelete}
-                className={`text-sm transition-all ${
-                  confirmDelete
-                    ? 'btn-danger text-sm animate-pulse'
-                    : 'text-night-500 hover:text-red-400'
-                }`}
-              >
-                {confirmDelete ? '🗑️ Yakin hapus?' : '🗑️ Hapus'}
-              </button>
-              <button
-                onClick={() => setEditing(true)}
-                className="btn-primary text-sm"
-              >
-                ✏️ Edit
-              </button>
-            </>
-          )}
+          <button onClick={() => onEdit(entry)} style={s.primaryBtn} className="jh-btn">
+            Ubah catatan
+          </button>
         </div>
       </div>
     </div>
   )
+}
+
+const s = {
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    background: '#0B0F1BCC',
+    backdropFilter: 'blur(3px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    zIndex: 50,
+  },
+  card: {
+    background: 'linear-gradient(180deg, #232C46, #1B2438)',
+    border: '1px solid #ffffff1c',
+    borderRadius: 16,
+    padding: 26,
+    maxWidth: 560,
+    width: '100%',
+    maxHeight: '80vh',
+    overflowY: 'auto',
+    boxShadow: '0 20px 60px -15px #00000090',
+  },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
+  dateRow: {
+    fontSize: 13,
+    color: '#B7BAC7',
+    fontFamily: "'Source Serif 4', serif",
+    fontStyle: 'italic',
+  },
+  moodTag: {
+    display: 'inline-block',
+    fontSize: 12,
+    padding: '3px 10px',
+    borderRadius: 999,
+    border: '1px solid',
+  },
+  closeBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#8B90A3',
+    fontSize: 16,
+    cursor: 'pointer',
+    padding: 4,
+    borderRadius: 6,
+  },
+  title: {
+    fontFamily: "'Source Serif 4', serif",
+    fontSize: 22,
+    color: '#F7F3E9',
+    margin: '0 0 10px',
+  },
+  body: {
+    fontFamily: "'Source Serif 4', serif",
+    fontSize: 15.5,
+    lineHeight: 1.8,
+    color: '#DDD9CE',
+    whiteSpace: 'pre-wrap',
+  },
+  footer: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 20,
+  },
+  primaryBtn: {
+    background: '#E8A94C',
+    color: '#1B2438',
+    border: 'none',
+    padding: '10px 20px',
+    borderRadius: 9,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'filter .15s ease',
+  },
+  dangerBtn: {
+    background: 'transparent',
+    color: '#E0846B',
+    border: '1px solid #E0846B44',
+    padding: '10px 16px',
+    borderRadius: 9,
+    fontSize: 13.5,
+    cursor: 'pointer',
+    transition: 'all .15s ease',
+  },
 }

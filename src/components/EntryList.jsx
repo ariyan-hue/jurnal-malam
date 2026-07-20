@@ -1,171 +1,105 @@
-import { useState, useMemo } from 'react'
-import { format } from 'date-fns'
-import { id as idLocale } from 'date-fns/locale'
-import { MOODS } from './MoodSelector'
-import SearchBar from './SearchBar'
+import { formatTanggal, formatWaktu, moodOf } from '../utils/helpers'
 
-export default function EntryList({ entries, loading, error, onSelect, onRefresh }) {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterMood, setFilterMood] = useState(null)
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [sortBy, setSortBy] = useState('newest')
+export default function EntryList({ grouped, loading, entries, filtered, onSelect }) {
+  if (loading) {
+    return <div style={s.emptyState}>Memuat catatan…</div>
+  }
 
-  const filteredEntries = useMemo(() => {
-    let result = [...entries]
-
-    // Text search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      result = result.filter(e =>
-        e.content.toLowerCase().includes(q) ||
-        (e.mood && e.mood.toLowerCase().includes(q))
-      )
-    }
-
-    // Mood filter
-    if (filterMood) {
-      result = result.filter(e => e.mood === filterMood)
-    }
-
-    // Date range
-    if (dateFrom) {
-      const from = new Date(dateFrom)
-      result = result.filter(e => new Date(e.created_at) >= from)
-    }
-    if (dateTo) {
-      const to = new Date(dateTo)
-      to.setHours(23, 59, 59, 999)
-      result = result.filter(e => new Date(e.created_at) <= to)
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at)
-      if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at)
-      return 0
-    })
-
-    return result
-  }, [entries, searchQuery, filterMood, dateFrom, dateTo, sortBy])
-
-  const getMoodInfo = (moodId) => MOODS.find(m => m.id === moodId)
-
-  const highlightText = (text, query) => {
-    if (!query.trim()) return text
-    const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
-    return parts.map((part, i) =>
-      part.toLowerCase() === query.toLowerCase()
-        ? <mark key={i} className="search-highlight">{part}</mark>
-        : part
+  if (entries.length === 0) {
+    return (
+      <div style={s.emptyState}>
+        Belum ada catatan. Halaman pertama menunggu di atas.
+      </div>
     )
   }
 
+  if (filtered.length === 0) {
+    return <div style={s.emptyState}>Tidak ada catatan yang cocok.</div>
+  }
+
   return (
-    <div className="card p-4 sm:p-6">
-      {/* Search & Filters */}
-      <SearchBar
-        query={searchQuery}
-        onQueryChange={setSearchQuery}
-        filterMood={filterMood}
-        onFilterMoodChange={setFilterMood}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        onDateFromChange={setDateFrom}
-        onDateToChange={setDateTo}
-        sortBy={sortBy}
-        onSortChange={setSortBy}
-      />
-
-      {/* Loading */}
-      {loading && (
-        <div className="py-12 text-center">
-          <span className="animate-spin text-2xl inline-block">⏳</span>
-          <p className="text-night-400 mt-2">Memuat catatan...</p>
-        </div>
-      )}
-
-      {/* Error */}
-      {error && !loading && (
-        <div className="py-12 text-center">
-          <p className="text-red-400 mb-3">⚠️ {error}</p>
-          <button onClick={onRefresh} className="btn-primary text-sm">
-            Coba muat ulang
-          </button>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!loading && !error && entries.length === 0 && (
-        <div className="py-12 text-center">
-          <p className="text-4xl mb-3">📝</p>
-          <p className="text-night-300 font-medium">Belum ada catatan</p>
-          <p className="text-night-500 text-sm mt-1">
-            Tulis catatan pertamamu di kolom sebelah kiri.
-          </p>
-        </div>
-      )}
-
-      {/* No results */}
-      {!loading && !error && entries.length > 0 && filteredEntries.length === 0 && (
-        <div className="py-12 text-center">
-          <p className="text-4xl mb-3">🔍</p>
-          <p className="text-night-300 font-medium">Tidak ada yang cocok</p>
-          <p className="text-night-500 text-sm mt-1">
-            Coba ubah kata kunci atau filter pencarianmu.
-          </p>
-        </div>
-      )}
-
-      {/* Entry list */}
-      {!loading && !error && filteredEntries.length > 0 && (
-        <div className="space-y-3 mt-4">
-          <p className="text-xs text-night-500">
-            {filteredEntries.length} dari {entries.length} catatan
-          </p>
-
-          {filteredEntries.map(entry => {
-            const moodInfo = getMoodInfo(entry.mood)
-            const preview = entry.content.length > 150
-              ? entry.content.substring(0, 150) + '...'
-              : entry.content
-
+    <>
+      {grouped.map(([date, items]) => (
+        <div key={date} style={{ marginBottom: 20 }}>
+          <div style={s.dateHeading}>{formatTanggal(date)}</div>
+          {items.map(entry => {
+            const mood = moodOf(entry.mood)
             return (
-              <button
+              <div
                 key={entry.id}
-                onClick={() => onSelect(entry)}
-                className="w-full text-left p-4 rounded-xl bg-night-800/40 hover:bg-night-800/70 border border-night-700/30 hover:border-night-600/50 transition-all duration-150 group"
+                className="jh-card jh-fade-in"
+                style={s.entryCard}
+                onClick={() => onSelect(entry.id)}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    {/* Date & Mood */}
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xs text-night-400">
-                        {format(new Date(entry.created_at), "d MMM, HH:mm", { locale: idLocale })}
-                      </span>
-                      {moodInfo && (
-                        <span className="text-sm" title={moodInfo.label}>
-                          {moodInfo.emoji}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Content preview */}
-                    <p className="text-sm text-night-200 leading-relaxed line-clamp-3">
-                      {highlightText(preview, searchQuery)}
-                    </p>
+                <div style={{ ...s.entryMoodBar, background: mood.color }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={s.entryTopRow}>
+                    <span style={s.entryTitle}>
+                      {entry.title || '(tanpa judul)'}
+                    </span>
+                    <span style={s.entryTime}>{formatWaktu(entry.createdAt)}</span>
                   </div>
-
-                  {/* Arrow */}
-                  <span className="text-night-600 group-hover:text-night-400 transition-colors mt-1 shrink-0">
-                    →
-                  </span>
+                  <div style={s.entryPreview}>{entry.body}</div>
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
-      )}
-    </div>
+      ))}
+    </>
   )
+}
+
+const s = {
+  emptyState: {
+    color: '#8B90A3',
+    fontSize: 14,
+    fontStyle: 'italic',
+    fontFamily: "'Source Serif 4', serif",
+    padding: '30px 10px',
+    textAlign: 'center',
+    border: '1px dashed #ffffff1a',
+    borderRadius: 12,
+  },
+  dateHeading: {
+    fontSize: 11.5,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: '#8B90A3',
+    marginBottom: 8,
+    fontWeight: 600,
+  },
+  entryCard: {
+    display: 'flex',
+    gap: 12,
+    background: '#ffffff07',
+    border: '1px solid #ffffff14',
+    borderRadius: 11,
+    padding: '12px 14px',
+    marginBottom: 9,
+    cursor: 'pointer',
+  },
+  entryMoodBar: { width: 3, borderRadius: 3, flexShrink: 0 },
+  entryTopRow: { display: 'flex', justifyContent: 'space-between', gap: 10 },
+  entryTitle: {
+    fontFamily: "'Source Serif 4', serif",
+    fontSize: 15,
+    color: '#F0EEE6',
+    fontWeight: 600,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  entryTime: { fontSize: 11.5, color: '#7C8093', flexShrink: 0 },
+  entryPreview: {
+    fontSize: 13,
+    color: '#B7BAC7',
+    marginTop: 4,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    lineHeight: 1.5,
+  },
 }
