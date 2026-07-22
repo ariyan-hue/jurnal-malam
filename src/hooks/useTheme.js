@@ -2,14 +2,17 @@ import { useState, useEffect } from 'react'
 
 const THEME_KEY = '***'
 
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY)
+    if (saved === 'dark' || saved === 'light') return saved
+  } catch {}
+  // Default ke dark mode — karena ini Jurnal Malam 🌙
+  return 'dark'
+}
+
 export function useTheme() {
-  const [theme, setTheme] = useState(() => {
-    try {
-      return localStorage.getItem(THEME_KEY) || 'dark'
-    } catch {
-      return 'dark'
-    }
-  })
+  const [theme, setTheme] = useState(getInitialTheme)
 
   useEffect(() => {
     try {
