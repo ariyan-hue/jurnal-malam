@@ -42,6 +42,7 @@ function JurnalApp() {
   const [selectedId, setSelectedId] = useState(null)
   const [showAdmin, setShowAdmin] = useState(false)
   const [showStats, setShowStats] = useState(false)
+  const [showReset, setShowReset] = useState(false)
 
   // Mobile tab: 'tulis' | 'catatan'
   const [mobileTab, setMobileTab] = useState('tulis')
@@ -191,6 +192,7 @@ function JurnalApp() {
           {(user.email === ADMIN_EMAIL) && (
             <button onClick={() => setShowAdmin(true)} style={s.adminBtn} className="jh-icon-btn">🔑</button>
           )}
+          <button onClick={() => setShowReset(true)} style={s.iconBtn} className="jh-icon-btn" title="Ganti Password">🔐</button>
           <button onClick={signOut} style={s.logoutBtn} className="jh-icon-btn">↗</button>
         </div>
       </header>
@@ -218,6 +220,9 @@ function JurnalApp() {
         ...s.main(isDark),
         ...(isMobile ? { display: 'block' } : {}),
       }}>
+        {/* ═══ RESET PASSWORD MODAL ═══ */}
+      {showReset && <PasswordReset onClose={() => setShowReset(false)} />}
+
         {/* WRITE PANEL — always visible on desktop, tab-based on mobile */}
         {(!isMobile || mobileTab === 'tulis') && (
           <section style={{

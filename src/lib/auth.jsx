@@ -95,13 +95,41 @@ export function AuthProvider({ children }) {
     return users.map(u => ({ id: u.id, email: u.email, createdAt: u.createdAt }))
   }
 
+  // User: ganti password sendiri (perlu old password)
+  async function changePassword(email, oldPassword, newPassword) {
+    const users = getUsers()
+    const idx = users.findIndex(u => u.email === email)
+    if (idx === -1) return { error: 'User tidak ditemukan.' }
+
+    // Verifikasi old password untuk non-admin
+    const isSelf = user?.email === email
+    if (isSelf && users[idx].password !== oldPassword) {
+      return { error: 'Password lama salah.' }
+    }
+
+    users[idx].password = newPassword
+    saveUsers(users)
+    return { error: null }
+  }
+
+  // Admin: reset password user ke default
+  async function resetUserPassword(email, defaultPassword) {
+    const users = getUsers()
+    const idx = users.findIndex(u => u.email === email)
+    if (idx === -1) return { error: 'User tidak ditemukan.' }
+
+    users[idx].password = defaultPassword
+    saveUsers(users)
+    return { error: null }
+  }
+
   async function signOut() {
     localStorage.removeItem(SESSION_KEY)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, approved: true, pendingApproval: false, signUp, signIn, signOut, addUser, removeUser, listUsers }}>
+    <AuthContext.Provider value={{ user, loading, approved: true, pendingApproval: false, signUp, signIn, signOut, addUser, removeUser, listUsers, changePassword, resetUserPassword }}>
       {children}
     </AuthContext.Provider>
   )
