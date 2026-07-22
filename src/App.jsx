@@ -4,6 +4,7 @@ import { ADMIN_EMAIL } from './lib/auth'
 import { MOODS, TAGS, todayISO, formatTanggal, formatWaktu, moodOf } from './utils/helpers'
 import { fetchEntries, createEntry, updateEntry, deleteEntry, loadDraft, clearDraft } from './utils/storage'
 import { useDebounce } from './hooks/useDebounce'
+import { useMediaQuery } from './hooks/useMediaQuery'
 import MoodSelector from './components/MoodSelector'
 import TagSelector from './components/TagSelector'
 import EntryList from './components/EntryList'
@@ -18,6 +19,8 @@ import { useTheme } from './hooks/useTheme'
 function JurnalApp() {
   const { user, signOut } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const isMobile = useMediaQuery('(max-width: 767px)')
+
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -40,16 +43,17 @@ function JurnalApp() {
   const [showAdmin, setShowAdmin] = useState(false)
   const [showStats, setShowStats] = useState(false)
 
+  // Mobile tab: 'tulis' | 'catatan'
+  const [mobileTab, setMobileTab] = useState('tulis')
+
   const textareaRef = useRef(null)
   const saveTimerRef = useRef(null)
   const listContainerRef = useRef(null)
 
-  // Debounce search query — 300ms
+  // Debounce search query
   const debouncedQuery = useDebounce(query, 300)
-
   const { clearSavedDraft } = useAutosave(draftBody, draftMood)
 
-  // Load entries (with search pushdown)
   const loadEntries = useCallback(async (pageNum = 1, append = false) => {
     if (!user) return
     if (pageNum === 1) setLoading(true)
@@ -79,12 +83,8 @@ function JurnalApp() {
     setLoadingMore(false)
   }, [user, debouncedQuery, moodFilter, tagFilter])
 
-  // Fetch when debounced query or filters change — reset to page 1
-  useEffect(() => {
-    loadEntries(1, false)
-  }, [loadEntries])
+  useEffect(() => { loadEntries(1, false) }, [loadEntries])
 
-  // Restore draft
   useEffect(() => {
     const saved = loadDraft()
     if (saved && saved.body) {
@@ -95,7 +95,6 @@ function JurnalApp() {
     }
   }, [])
 
-  // Auto-clear save status
   useEffect(() => {
     if (saveStatus && saveStatus !== 'saving') {
       saveTimerRef.current = setTimeout(() => setSaveStatus(''), 3000)
@@ -103,10 +102,7 @@ function JurnalApp() {
     }
   }, [saveStatus])
 
-  // Muat lebih banyak
-  function muatLebihBanyak() {
-    loadEntries(page + 1, true)
-  }
+  function muatLebihBanyak() { loadEntries(page + 1, true) }
 
   function resetDraft() {
     setDraftTitle('')
@@ -147,6 +143,7 @@ function JurnalApp() {
     setDraftMood(entry.mood)
     setDraftTags(entry.tags || [])
     setSelectedId(null)
+    if (isMobile) setMobileTab('tulis')
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setTimeout(() => textareaRef.current?.focus(), 300)
   }
@@ -159,7 +156,7 @@ function JurnalApp() {
     if (selectedId === id) setSelectedId(null)
   }
 
-  const filtered = entries // already filtered server-side
+  const filtered = entries
   const grouped = useMemo(() => {
     const map = new Map()
     for (const e of filtered) {
@@ -170,7 +167,6 @@ function JurnalApp() {
   }, [filtered])
 
   const hasMore = entries.length < total
-
   const selectedEntry = entries.find(e => e.id === selectedId)
   const isDark = theme === 'dark'
 
@@ -178,147 +174,160 @@ function JurnalApp() {
     <div style={s.page(isDark)}>
       <div style={s.lampGlow(isDark)} aria-hidden="true" />
 
-      <header style={s.header}>
-        <div>
+      {/* ═══ HEADER ═══ */}
+      <header style={{...s.header, flexWrap: isMobile ? 'wrap' : 'wrap'}}>
+        <div style={isMobile ? s.mobileHeaderTop : {}}>
           <div style={s.eyebrow}>Catatan Pribadi</div>
           <h1 style={s.h1}>Jurnal Malam</h1>
         </div>
         <div style={s.headerRight}>
           <div style={s.statusWrap}>
-            {saveStatus === 'saving' && (
-              <span style={{ ...s.statusText, color: isDark ? '#E8A94C' : '#B8860B' }}>⏳ menyimpan…</span>
-            )}
-            {saveStatus === 'saved' && (
-              <span style={{ ...s.statusText, color: isDark ? '#7FA6A0' : '#2E7D6F' }}>✓ tersimpan</span>
-            )}
-            {saveStatus === 'error' && (
-              <span style={{ ...s.statusText, color: '#E0846B' }}>✗ gagal simpan</span>
-            )}
-            {!saveStatus && !loading && (
-              <span style={s.statusText}>
-                {draftBody.trim() ? '✎ menulis…' : 'siap menulis'}
-              </span>
-            )}
+            {saveStatus === 'saving' && <span style={{ ...s.statusText, color: isDark ? '#E8A94C' : '#B8860B' }}>⏳</span>}
+            {saveStatus === 'saved' && <span style={{ ...s.statusText, color: isDark ? '#7FA6A0' : '#2E7D6F' }}>✓</span>}
+            {saveStatus === 'error' && <span style={{ ...s.statusText, color: '#E0846B' }}>✗</span>}
           </div>
-          <button onClick={toggleTheme} style={s.themeBtn} className="jh-icon-btn" title={isDark ? 'Mode Terang' : 'Mode Gelap'}>
-            {isDark ? '☀' : '☾'}
-          </button>
+          <button onClick={toggleTheme} style={s.iconBtn} className="jh-icon-btn">{isDark ? '☀' : '☾'}</button>
+          <button onClick={() => setShowStats(true)} style={s.iconBtn} className="jh-icon-btn">📊</button>
           {(user.email === ADMIN_EMAIL) && (
-            <button onClick={() => setShowAdmin(true)} style={s.adminBtn} className="jh-icon-btn" title="Kelola User">🔑 Admin</button>
+            <button onClick={() => setShowAdmin(true)} style={s.adminBtn} className="jh-icon-btn">🔑</button>
           )}
-          <button onClick={() => setShowStats(true)} style={s.statsBtn} className="jh-icon-btn" title="Statistik Mood">📊 Statistik</button>
-          <button onClick={signOut} style={s.logoutBtn} className="jh-icon-btn" title="Keluar">↗ Keluar</button>
+          <button onClick={signOut} style={s.logoutBtn} className="jh-icon-btn">↗</button>
         </div>
       </header>
 
-      <main style={s.main(isDark)}>
-        <section style={s.writePanel}>
-          <div style={s.writeCard(isDark)}>
-            <div style={s.dateRow(isDark)}>{formatTanggal(todayISO())}</div>
-            <input
-              value={draftTitle}
-              onChange={e => setDraftTitle(e.target.value)}
-              placeholder="Judul (opsional)"
-              style={s.titleInput(isDark)}
-            />
-            <textarea
-              ref={textareaRef}
-              value={draftBody}
-              onChange={e => setDraftBody(e.target.value)}
-              placeholder="Apa yang terjadi hari ini? Tulis saja, sepanjang yang perlu…"
-              style={s.bodyInput(isDark)}
-              rows={7}
-            />
-            <div style={s.moodRow}>
-              <MoodSelector selected={draftMood} onSelect={setDraftMood} />
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <TagSelector selected={draftTags} onChange={setDraftTags} />
-            </div>
-            <div style={s.writeFooter}>
-              {editingId && <button onClick={resetDraft} style={s.ghostBtn(isDark)} className="jh-icon-btn">Batal edit</button>}
-              <button
-                onClick={simpanEntri}
-                disabled={!draftBody.trim()}
-                className="jh-btn"
-                style={{
-                  ...s.primaryBtn,
-                  opacity: draftBody.trim() ? 1 : 0.45,
-                  cursor: draftBody.trim() ? 'pointer' : 'default',
-                }}
-              >
-                {saving ? 'Menyimpan…' : editingId ? 'Simpan perubahan' : 'Catat'}
-              </button>
-            </div>
-          </div>
-        </section>
+      {/* ═══ MOBILE TAB BAR ═══ */}
+      {isMobile && (
+        <div style={s.tabBar}>
+          <button
+            onClick={() => setMobileTab('tulis')}
+            style={mobileTab === 'tulis' ? s.tabActive : s.tabInactive}
+          >
+            ✏️ Tulis
+          </button>
+          <button
+            onClick={() => setMobileTab('catatan')}
+            style={mobileTab === 'catatan' ? s.tabActive : s.tabInactive}
+          >
+            📖 Catatan{total > 0 ? ` (${total})` : ''}
+          </button>
+        </div>
+      )}
 
-        <section style={s.listPanel}>
-          <div style={s.filterRow}>
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Cari catatan…"
-              style={s.searchInput(isDark)}
-            />
-            <select value={moodFilter} onChange={e => { setMoodFilter(e.target.value); setPage(1) }} style={s.selectInput(isDark)}>
-              <option value="semua">Semua suasana</option>
-              {MOODS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </select>
-            <select value={tagFilter} onChange={e => { setTagFilter(e.target.value); setPage(1) }} style={s.selectInput(isDark)}>
-              <option value="semua">Semua tag</option>
-              {TAGS.map(t => <option key={t.id} value={t.id}>#{t.label}</option>)}
-            </select>
-          </div>
-
-          {/* Result count */}
-          {!loading && (
-            <div style={{
-              fontSize: 12,
-              color: '#8B90A3',
-              marginBottom: 8,
-              fontStyle: 'italic',
-            }}>
-              {total > 0
-                ? `${total} catatan${query.trim() ? ` — hasil untuk "${query}"` : ''}`
-                : query.trim() ? 'Tidak ada catatan yang cocok.' : ''}
-            </div>
-          )}
-
-          <div style={s.listScroll(isDark)} className="jh-scroll" ref={listContainerRef}>
-            <EntryList
-              grouped={grouped}
-              loading={loading}
-              entries={entries}
-              filtered={filtered}
-              onSelect={setSelectedId}
-            />
-
-            {/* Load more button */}
-            {hasMore && !loading && (
-              <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
+      {/* ═══ MAIN CONTENT ═══ */}
+      <main style={{
+        ...s.main(isDark),
+        ...(isMobile ? { display: 'block' } : {}),
+      }}>
+        {/* WRITE PANEL — always visible on desktop, tab-based on mobile */}
+        {(!isMobile || mobileTab === 'tulis') && (
+          <section style={{
+            ...s.writePanel,
+            ...(isMobile ? { display: 'block' } : {}),
+          }}>
+            <div style={s.writeCard(isDark)}>
+              <div style={s.dateRow(isDark)}>{formatTanggal(todayISO())}</div>
+              <input
+                value={draftTitle}
+                onChange={e => setDraftTitle(e.target.value)}
+                placeholder="Judul (opsional)"
+                style={s.titleInput(isDark)}
+              />
+              <textarea
+                ref={textareaRef}
+                value={draftBody}
+                onChange={e => setDraftBody(e.target.value)}
+                placeholder="Apa yang terjadi hari ini? Tulis saja, sepanjang yang perlu…"
+                style={s.bodyInput(isDark)}
+                rows={isMobile ? 10 : 7}
+              />
+              <div style={s.moodRow}>
+                <MoodSelector selected={draftMood} onSelect={setDraftMood} />
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <TagSelector selected={draftTags} onChange={setDraftTags} />
+              </div>
+              <div style={s.writeFooter}>
+                {editingId && <button onClick={resetDraft} style={s.ghostBtn(isDark)} className="jh-icon-btn">Batal edit</button>}
                 <button
-                  onClick={muatLebihBanyak}
-                  disabled={loadingMore}
+                  onClick={simpanEntri}
+                  disabled={!draftBody.trim()}
+                  className="jh-btn"
                   style={{
-                    background: 'transparent',
-                    border: '1px solid #ffffff1f',
-                    color: '#B7BAC7',
-                    padding: '10px 28px',
-                    borderRadius: 9,
-                    fontSize: 13.5,
-                    cursor: loadingMore ? 'default' : 'pointer',
-                    opacity: loadingMore ? 0.6 : 1,
-                    fontFamily: "'Inter', sans-serif",
+                    ...s.primaryBtn,
+                    opacity: draftBody.trim() ? 1 : 0.45,
+                    cursor: draftBody.trim() ? 'pointer' : 'default',
                   }}
-                  className="jh-icon-btn"
                 >
-                  {loadingMore ? 'Memuat…' : `Muat ${Math.min(30, total - entries.length)} catatan lagi`}
+                  {saving ? 'Menyimpan…' : editingId ? 'Simpan perubahan' : 'Catat'}
                 </button>
               </div>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
+
+        {/* LIST PANEL — always visible on desktop, tab-based on mobile */}
+        {(!isMobile || mobileTab === 'catatan') && (
+          <section style={{
+            ...s.listPanel,
+            ...(isMobile ? { display: 'block' } : {}),
+          }}>
+            <div style={s.filterRow}>
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Cari catatan…"
+                style={s.searchInput(isDark, isMobile)}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+              <select value={moodFilter} onChange={e => { setMoodFilter(e.target.value); setPage(1) }} style={s.selectInput(isDark, isMobile)}>
+                <option value="semua">😶 Semua</option>
+                {MOODS.map(m => <option key={m.id} value={m.id}>{m.glyph} {m.label}</option>)}
+              </select>
+              <select value={tagFilter} onChange={e => { setTagFilter(e.target.value); setPage(1) }} style={s.selectInput(isDark, isMobile)}>
+                <option value="semua">🏷️ Semua tag</option>
+                {TAGS.map(t => <option key={t.id} value={t.id}>#{t.label}</option>)}
+              </select>
+              {total > 0 && (
+                <span style={{
+                  fontSize: 12,
+                  color: '#8B90A3',
+                  fontStyle: 'italic',
+                  alignSelf: 'center',
+                  marginLeft: 'auto',
+                }}>
+                  {total} catatan
+                </span>
+              )}
+            </div>
+
+            <div style={s.listScroll(isDark, isMobile)} className="jh-scroll" ref={listContainerRef}>
+              <EntryList
+                grouped={grouped}
+                loading={loading}
+                entries={entries}
+                filtered={filtered}
+                onSelect={(id) => {
+                  setSelectedId(id)
+                  if (isMobile) setMobileTab('catatan')
+                }}
+              />
+
+              {hasMore && !loading && (
+                <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
+                  <button
+                    onClick={muatLebihBanyak}
+                    disabled={loadingMore}
+                    style={s.loadMoreBtn}
+                    className="jh-icon-btn"
+                  >
+                    {loadingMore ? 'Memuat…' : `Muat ${Math.min(30, total - entries.length)} lagi`}
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
       </main>
 
       {error && (
@@ -362,7 +371,7 @@ const s = {
   page: dark => ({
     position: 'relative',
     minHeight: '100vh',
-    padding: '32px 24px 60px',
+    padding: '20px 16px 60px',
     overflow: 'hidden',
     background: dark ? '#1B2438' : '#F5F0E8',
     color: dark ? '#F7F3E9' : '#2C2416',
@@ -382,24 +391,24 @@ const s = {
   header: {
     position: 'relative',
     maxWidth: 980,
-    margin: '0 auto 28px',
+    margin: '0 auto 16px',
     display: 'flex',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
     gap: 8,
   },
+  mobileHeaderTop: { width: '100%' },
   eyebrow: {
     fontSize: 12,
     letterSpacing: '0.14em',
     textTransform: 'uppercase',
     color: '#E8A94C',
-    marginBottom: 6,
+    marginBottom: 4,
     fontWeight: 600,
   },
   h1: {
     fontFamily: "'Source Serif 4', serif",
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: 600,
     margin: 0,
     color: '#F7F3E9',
@@ -407,25 +416,18 @@ const s = {
   headerRight: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     flexWrap: 'wrap',
   },
-  statusWrap: {
-    fontSize: 12,
-    color: '#8B90A3',
-    minWidth: 90,
-    textAlign: 'right',
-  },
-  statusText: {
-    fontStyle: 'italic',
-  },
-  themeBtn: {
+  statusWrap: { fontSize: 14, color: '#8B90A3', minWidth: 24, textAlign: 'right' },
+  statusText: { fontStyle: 'italic' },
+  iconBtn: {
     background: 'transparent',
     border: '1px solid #ffffff1f',
     color: '#B7BAC7',
-    padding: '6px 10px',
+    padding: '5px 9px',
     borderRadius: 8,
-    fontSize: 16,
+    fontSize: 15,
     cursor: 'pointer',
     lineHeight: 1,
   },
@@ -433,33 +435,60 @@ const s = {
     background: 'transparent',
     border: '1px solid #ffffff1f',
     color: '#B7BAC7',
-    padding: '6px 12px',
+    padding: '5px 9px',
     borderRadius: 8,
-    fontSize: 12,
+    fontSize: 14,
     cursor: 'pointer',
-    fontFamily: "'Inter', sans-serif",
-  },
-  statsBtn: {
-    background: 'transparent',
-    border: '1px solid #ffffff1f',
-    color: '#B7BAC7',
-    padding: '6px 12px',
-    borderRadius: 8,
-    fontSize: 12,
-    cursor: 'pointer',
-    fontFamily: "'Inter', sans-serif",
+    lineHeight: 1,
   },
   adminBtn: {
     background: '#E8A94C22',
     border: '1px solid #E8A94C44',
     color: '#E8A94C',
-    padding: '6px 12px',
+    padding: '5px 9px',
     borderRadius: 8,
-    fontSize: 12,
+    fontSize: 14,
     cursor: 'pointer',
-    fontFamily: "'Inter', sans-serif",
+    lineHeight: 1,
     fontWeight: 600,
   },
+
+  // ─── TAB BAR (mobile only) ───
+  tabBar: {
+    display: 'flex',
+    gap: 0,
+    margin: '0 auto 16px',
+    maxWidth: 980,
+    background: '#ffffff08',
+    borderRadius: 11,
+    border: '1px solid #ffffff14',
+    overflow: 'hidden',
+  },
+  tabActive: {
+    flex: 1,
+    padding: '10px 12px',
+    textAlign: 'center',
+    background: '#E8A94C20',
+    color: '#E8A94C',
+    border: 'none',
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+  },
+  tabInactive: {
+    flex: 1,
+    padding: '10px 12px',
+    textAlign: 'center',
+    background: 'transparent',
+    color: '#8B90A3',
+    border: 'none',
+    fontSize: 14,
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+  },
+
+  // ─── MAIN ───
   main: dark => ({
     position: 'relative',
     maxWidth: 980,
@@ -467,10 +496,9 @@ const s = {
     display: 'grid',
     gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,0.9fr)',
     gap: 22,
-    '@media (max-width: 720px)': {
-      gridTemplateColumns: '1fr',
-    },
   }),
+
+  // ─── WRITE PANEL ───
   writePanel: {},
   writeCard: dark => ({
     background: dark
@@ -501,6 +529,7 @@ const s = {
     padding: '4px 2px 10px',
     marginBottom: 12,
     outline: 'none',
+    boxSizing: 'border-box',
   }),
   bodyInput: dark => ({
     width: '100%',
@@ -513,6 +542,7 @@ const s = {
     resize: 'vertical',
     padding: '2px',
     outline: 'none',
+    boxSizing: 'border-box',
   }),
   moodRow: { marginTop: 14 },
   writeFooter: {
@@ -541,43 +571,55 @@ const s = {
     fontSize: 14,
     cursor: 'pointer',
   }),
-  listPanel: {
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: 0,
-  },
+
+  // ─── LIST PANEL ───
+  listPanel: { display: 'flex', flexDirection: 'column', minHeight: 0 },
   filterRow: {
     display: 'flex',
     gap: 8,
     marginBottom: 14,
-    flexWrap: 'wrap',
   },
-  searchInput: dark => ({
-    flex: '1 1 140px',
+  searchInput: (dark, mobile) => ({
+    flex: 1,
     background: dark ? '#ffffff08' : '#ffffff',
     border: `1px solid ${dark ? '#ffffff17' : '#d0c8b8'}`,
     color: dark ? '#EDEBE3' : '#3C3426',
-    padding: '9px 12px',
+    padding: mobile ? '12px 14px' : '9px 12px',
     borderRadius: 9,
-    fontSize: 13.5,
+    fontSize: mobile ? 16 : 13.5,
     fontFamily: "'Inter', sans-serif",
     outline: 'none',
   }),
-  selectInput: dark => ({
+  selectInput: (dark, mobile) => ({
+    flex: 1,
+    minWidth: 0,
     background: dark ? '#ffffff08' : '#ffffff',
     border: `1px solid ${dark ? '#ffffff17' : '#d0c8b8'}`,
     color: dark ? '#EDEBE3' : '#3C3426',
-    padding: '9px 10px',
+    padding: mobile ? '10px 10px' : '9px 10px',
     borderRadius: 9,
-    fontSize: 13,
+    fontSize: mobile ? 15 : 13,
     fontFamily: "'Inter', sans-serif",
     outline: 'none',
+    cursor: 'pointer',
   }),
-  listScroll: dark => ({
-    maxHeight: 560,
-    overflowY: 'auto',
+  listScroll: (dark, mobile) => ({
+    maxHeight: mobile ? 'none' : 560,
+    overflowY: mobile ? 'visible' : 'auto',
     paddingRight: 4,
   }),
+  loadMoreBtn: {
+    background: 'transparent',
+    border: '1px solid #ffffff1f',
+    color: '#B7BAC7',
+    padding: '12px 32px',
+    borderRadius: 9,
+    fontSize: 14,
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+  },
+
+  // ─── ERROR BAR ───
   errorBar: {
     position: 'fixed',
     bottom: 20,
