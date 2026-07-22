@@ -1,4 +1,5 @@
 import { formatTanggal, formatWaktu, moodOf } from '../utils/helpers'
+import TagBadge from './TagBadge'
 
 export default function EntryList({ grouped, loading, entries, filtered, onSelect }) {
   if (loading) {
@@ -40,6 +41,11 @@ export default function EntryList({ grouped, loading, entries, filtered, onSelec
                     <span style={s.entryTime}>{formatWaktu(entry.createdAt)}</span>
                   </div>
                   <div style={s.entryPreview}>{entry.body}</div>
+                  {(entry.tags || []).length > 0 && (
+                    <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                      {(entry.tags || []).map(t => <TagBadge key={t} tagId={t} />)}
+                    </div>
+                  )}
                 </div>
               </div>
             )

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { formatTanggal, formatWaktu, moodOf } from '../utils/helpers'
+import TagBadge from './TagBadge'
 
 export default function EntryDetail({ entry, onClose, onEdit, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -52,6 +53,12 @@ export default function EntryDetail({ entry, onClose, onEdit, onDelete }) {
 
         {entry.title && <h2 style={s.title}>{entry.title}</h2>}
         <p style={s.body}>{entry.body}</p>
+
+        {(entry.tags || []).length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 16 }}>
+            {(entry.tags || []).map(t => <TagBadge key={t} tagId={t} />)}
+          </div>
+        )}
 
         <div style={s.footer}>
           <button

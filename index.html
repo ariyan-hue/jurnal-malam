@@ -7,6 +7,18 @@
     <meta name="theme-color" content="#0f0f25" />
     <meta name="description" content="Jurnal Malam — Catatan harian pribadi yang aman dan nyaman" />
     <title>Jurnal Malam</title>
+    <style>
+      /* Responsive */
+      @media (max-width: 768px) {
+        .jh-desktop-grid { grid-template-columns: 1fr !important; }
+        .jh-hide-mobile { display: none !important; }
+        .jh-stack-mobile { flex-direction: column !important; }
+        .jh-full-mobile { max-width: 100% !important; }
+      }
+      @media (max-width: 480px) {
+        .jh-pad-mobile { padding: 16px 12px !important; }
+      }
+    </style>
   </head>
   <body class="bg-night-950 text-night-100 min-h-dvh">
     <div id="root"></div>

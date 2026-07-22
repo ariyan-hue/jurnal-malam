@@ -7,6 +7,7 @@
 -- 1. Buat tabel approvals
 CREATE TABLE IF NOT EXISTS user_approvals (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT,
   approved BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -14,14 +15,12 @@ CREATE TABLE IF NOT EXISTS user_approvals (
 -- 2. Aktifkan RLS
 ALTER TABLE user_approvals ENABLE ROW LEVEL SECURITY;
 
--- Admin bisa baca semua
-CREATE POLICY "Admin can read all approvals" ON user_approvals
+-- User bisa baca status approval diri sendiri
+CREATE POLICY "Users can read own approval" ON user_approvals
   FOR SELECT
-  USING (
-    auth.uid() IN (SELECT user_id FROM user_approvals WHERE approved = TRUE AND user_id = auth.uid())
-    OR
-    auth.uid() = '***'
-  );
+  USING (auth.uid() = user_id);
+
+-- Catatan: Admin akses semua data lewat app code (ADMIN_EMAIL check), bukan RLS.
 
 -- User bisa insert approval diri sendiri (saat daftar)
 CREATE POLICY "Users can insert own approval" ON user_approvals

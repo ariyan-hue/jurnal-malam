@@ -1,12 +1,28 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { saveDraft, clearDraft } from '../utils/storage'
 
 /**
  * Autosave draft every N seconds while content is non-empty.
+ * Returns last saved timestamp for status indicators.
  */
 export function useAutosave(content, mood, enabled = true) {
   const timerRef = useRef(null)
   const lastSavedRef = useRef(null)
+  const lastSavedTime = useRef(null)
+
+  const forceSave = useCallback(() => {
+    if (content && content.trim().length > 0) {
+      saveDraft({ body: content, mood })
+      lastSavedRef.current = JSON.stringify({ body: content, mood })
+      lastSavedTime.current = Date.now()
+    }
+  }, [content, mood])
+
+  const clearSavedDraft = useCallback(() => {
+    clearDraft()
+    lastSavedRef.current = null
+    lastSavedTime.current = null
+  }, [])
 
   useEffect(() => {
     if (!enabled) return
@@ -26,6 +42,7 @@ export function useAutosave(content, mood, enabled = true) {
       if (serialized !== lastSavedRef.current) {
         saveDraft(draft)
         lastSavedRef.current = serialized
+        lastSavedTime.current = Date.now()
       }
     }, 5000)
 
@@ -36,17 +53,5 @@ export function useAutosave(content, mood, enabled = true) {
     }
   }, [content, mood, enabled])
 
-  const forceSave = () => {
-    if (content && content.trim().length > 0) {
-      saveDraft({ body: content, mood })
-      lastSavedRef.current = JSON.stringify({ body: content, mood })
-    }
-  }
-
-  const clearSavedDraft = () => {
-    clearDraft()
-    lastSavedRef.current = null
-  }
-
-  return { forceSave, clearSavedDraft }
+  return { forceSave, clearSavedDraft, lastSavedTime }
 }

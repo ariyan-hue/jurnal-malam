@@ -6,6 +6,17 @@ export const MOODS = [
   { id: 'syukur', label: 'Syukur', color: '#B08D57', glyph: '✦' },
 ]
 
+export const TAGS = [
+  { id: 'kerja', label: 'Kerja', color: '#7FA6A0' },
+  { id: 'pribadi', label: 'Pribadi', color: '#E8A94C' },
+  { id: 'mimpi', label: 'Mimpi', color: '#8B7FA8' },
+  { id: 'sekolah', label: 'Sekolah', color: '#B08D57' },
+  { id: 'olahraga', label: 'Olahraga', color: '#7FA6A0' },
+  { id: 'makanan', label: 'Makanan', color: '#C4664F' },
+  { id: 'liburan', label: 'Liburan', color: '#E8A94C' },
+  { id: 'ide', label: 'Ide', color: '#8B7FA8' },
+]
+
 export function todayISO() {
   const d = new Date()
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
@@ -15,6 +26,11 @@ export function todayISO() {
 export function formatTanggal(iso) {
   const d = new Date(iso + 'T00:00:00')
   return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+export function formatTanggalSingkat(iso) {
+  const d = new Date(iso + 'T00:00:00')
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
 }
 
 export function formatWaktu(ts) {

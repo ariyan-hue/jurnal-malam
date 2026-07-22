@@ -16,18 +16,23 @@ export default function LoginPage() {
     setSuccess('')
     setLoading(true)
 
-    if (isRegister) {
-      const { error } = await signUp(email, password)
-      if (error) {
-        setError(error.message)
+    try {
+      if (isRegister) {
+        const result = await signUp(email, password)
+        if (result.error) {
+          setError(String(result.error))
+        } else {
+          setSuccess('Akun dibuat! Menunggu persetujuan admin.')
+        }
       } else {
-        setSuccess('Akun dibuat! Cek email untuk verifikasi, lalu login.')
+        const result = await signIn(email, password)
+        if (result.error) {
+          setError(String(result.error))
+        }
       }
-    } else {
-      const { error } = await signIn(email, password)
-      if (error) {
-        setError('Email atau password salah.')
-      }
+    } catch (e) {
+      setError('Terjadi kesalahan. Coba lagi.')
+      console.error('Auth error:', e)
     }
 
     setLoading(false)
@@ -38,7 +43,6 @@ export default function LoginPage() {
       <div style={s.lampGlow} aria-hidden="true" />
 
       <div style={s.card} className="jh-fade-in">
-        {/* Logo */}
         <div style={s.logoWrap}>
           <span style={{ fontSize: 36 }}>🌙</span>
         </div>
@@ -46,11 +50,10 @@ export default function LoginPage() {
         <h1 style={s.title}>Jurnal Malam</h1>
         <p style={s.subtitle}>Catatan pribadi yang aman untukmu</p>
 
-        {/* Tab Toggle */}
         <div style={s.tabRow}>
           <button
             onClick={() => { setIsRegister(false); setError(''); setSuccess('') }}
-            style={{ ...s.tab, ...(isRegister ? {} : s.tabActive) }}
+            style={{ ...s.tab, ...(!isRegister ? s.tabActive : {}) }}
           >
             Masuk
           </button>
@@ -62,7 +65,6 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} style={s.form}>
           <div>
             <label style={s.label}>Email</label>
@@ -95,10 +97,7 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             className="jh-btn"
-            style={{
-              ...s.submitBtn,
-              opacity: loading ? 0.6 : 1,
-            }}
+            style={{ ...s.submitBtn, opacity: loading ? 0.6 : 1 }}
           >
             {loading ? 'Memproses…' : isRegister ? 'Buat Akun' : 'Masuk'}
           </button>
@@ -228,12 +227,18 @@ const s = {
     color: '#E0846B',
     textAlign: 'center',
     margin: 0,
+    padding: '8px 12px',
+    background: '#E0846B11',
+    borderRadius: 8,
   },
   success: {
     fontSize: 13,
     color: '#7FA6A0',
     textAlign: 'center',
     margin: 0,
+    padding: '8px 12px',
+    background: '#7FA6A011',
+    borderRadius: 8,
   },
   footer: {
     fontSize: 13,

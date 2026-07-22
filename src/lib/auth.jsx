@@ -1,108 +1,107 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
-// Admin email — ganti dengan email kamu sendiri!
 const ADMIN_EMAIL = 'bowo@gmail.com'
+const ADMIN_PASSWORD = 'bowo321@'
+const USERS_KEY = '***' + '_users'
+const SESSION_KEY = '***'
+
+// Load users dari localStorage
+function getUsers() {
+  try {
+    const raw = localStorage.getItem(USERS_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+function saveUsers(users) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users))
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [approved, setApproved] = useState(false)
-  const [pendingApproval, setPendingApproval] = useState(false)
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setUser({ id: 'local-user', email: 'local@jurnal.dev' })
-      setApproved(true)
-      setLoading(false)
-      return
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user ?? null
-      setUser(u)
-      if (u) checkApproval(u.id, u.email)
-      else setLoading(false)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const u = session?.user ?? null
-      setUser(u)
-      if (u) checkApproval(u.id, u.email)
-      else {
-        setApproved(false)
-        setPendingApproval(false)
-        setLoading(false)
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  async function checkApproval(userId, email) {
-    // Admin langsung approved
-    if (email === ADMIN_EMAIL) {
-      setApproved(true)
-      setLoading(false)
-      return
-    }
-
-    try {
-      const { data } = await supabase
-        .from('user_approvals')
-        .select('approved')
-        .eq('user_id', userId)
-        .single()
-
-      if (data && data.approved) {
-        setApproved(true)
-        setPendingApproval(false)
-      } else {
-        setApproved(false)
-        setPendingApproval(true)
-      }
-    } catch {
-      // Belum ada record → belum di-approve
-      setApproved(false)
-      setPendingApproval(true)
+    const saved = localStorage.getItem(SESSION_KEY)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (parsed && parsed.email) {
+          setUser(parsed)
+        }
+      } catch {}
     }
     setLoading(false)
-  }
-
-  async function signUp(email, password) {
-    if (!isSupabaseConfigured) return { error: 'Supabase tidak dikonfigurasi' }
-
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) return { error }
-
-    // Buat record approval (default: belum di-approve)
-    if (data?.user) {
-      await supabase.from('user_approvals').insert({
-        user_id: data.user.id,
-        approved: false,
-      })
-    }
-
-    return { error: null }
-  }
+  }, [])
 
   async function signIn(email, password) {
-    if (!isSupabaseConfigured) return { error: 'Supabase tidak dikonfigurasi' }
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error }
+    // Cek admin
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      const u = { id: 'admin', email: ADMIN_EMAIL, role: 'admin' }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(u))
+      setUser(u)
+      return { error: null }
+    }
+
+    // Cek user biasa
+    const users = getUsers()
+    const found = users.find(u => u.email === email && u.password === password)
+    if (found) {
+      const u = { id: found.id, email: found.email, role: 'user' }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(u))
+      setUser(u)
+      return { error: null }
+    }
+
+    return { error: 'Email atau password salah.' }
+  }
+
+  async function signUp() {
+    return { error: 'Pendaftaran ditutup. Hubungi admin untuk membuat akun.' }
+  }
+
+  // Admin: tambah user baru
+  async function addUser(email, password) {
+    const users = getUsers()
+
+    // Cek duplikat
+    if (users.find(u => u.email === email) || email === ADMIN_EMAIL) {
+      return { error: 'Email sudah terdaftar.' }
+    }
+
+    const newUser = {
+      id: `user-${Date.now()}`,
+      email,
+      password,
+      createdAt: new Date().toISOString(),
+    }
+    users.push(newUser)
+    saveUsers(users)
+    return { error: null, user: { id: newUser.id, email: newUser.email } }
+  }
+
+  // Admin: hapus user
+  async function removeUser(userId) {
+    const users = getUsers().filter(u => u.id !== userId)
+    saveUsers(users)
+  }
+
+  // Admin: list semua user
+  function listUsers() {
+    const users = getUsers()
+    if (!Array.isArray(users)) return []
+    return users.map(u => ({ id: u.id, email: u.email, createdAt: u.createdAt }))
   }
 
   async function signOut() {
-    if (!isSupabaseConfigured) return
-    await supabase.auth.signOut()
-    setApproved(false)
-    setPendingApproval(false)
+    localStorage.removeItem(SESSION_KEY)
+    setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, approved, pendingApproval, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, approved: true, pendingApproval: false, signUp, signIn, signOut, addUser, removeUser, listUsers }}>
       {children}
     </AuthContext.Provider>
   )
